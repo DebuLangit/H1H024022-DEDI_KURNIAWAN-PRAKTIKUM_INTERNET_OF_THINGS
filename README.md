@@ -1,0 +1,2 @@
+# H1H024022-DEDI_KURNIAWAN-PRAKTIKUM_INTERNET_OF_THINGS
+repo praktikum internet of things
