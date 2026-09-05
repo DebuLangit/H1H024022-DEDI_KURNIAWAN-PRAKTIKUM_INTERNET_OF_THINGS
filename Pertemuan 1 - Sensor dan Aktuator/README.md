@@ -25,6 +25,78 @@ Percabangan `if-else` digunakan untuk memvalidasi hasil pembacaan. Jika suhu ata
 3. Alasan Diperlukannya Delay Minimal 2 Detik
    - Delay minimal 2 detik diperlukan karena sensor DHT memiliki proses pembacaan dan konversi data yang membutuhkan waktu. Pembacaan terlalu cepat dapat menyebabkan data belum diperbarui, menghasilkan data yang salah atau berulang, maupun menyebabkan kegagalan pembacaan `(NaN)`.
 4. Modifikasi Program (Rata-Rata 5 Kali Pembacaan)
+```
+#include <DHT.h>
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Memulai akuisisi data sensor DHT22 dengan Rata-Rata...");
+  dht.begin();
+  delay(2000);
+}
+
+void loop() {
+  float totalSuhu = 0;
+  float totalKelembaban = 0;
+  int pembacaanValid = 0;
+
+  // Melakukan pengambilan data sebanyak 5 kali
+  for (int i = 0; i < 5; i++) {
+    float kelembaban = dht.readHumidity();
+    float suhu = dht.readTemperature();
+
+    if (isnan(kelembaban) || isnan(suhu)) {
+      Serial.println("Gagal membaca sampel data dari sensor!");
+    } else {
+      totalSuhu += suhu;
+      totalKelembaban += kelembaban;
+      pembacaanValid++;
+    }
+
+    // Jeda 2 detik antar pengambilan sampel
+    delay(2000);
+  }
+
+  // Menampilkan hasil rata-rata jika terdapat pembacaan yang valid
+  if (pembacaanValid > 0) {
+    float rataSuhu = totalSuhu / pembacaanValid;
+    float rataKelembaban = totalKelembaban / pembacaanValid;
+
+    Serial.print("=== Rata-rata dari ");
+    Serial.print(pembacaanValid);
+    Serial.println(" sampel valid ===");
+    Serial.print("Rata-rata Suhu       : ");
+    Serial.print(rataSuhu);
+    Serial.println(" °C");
+    Serial.print("Rata-rata Kelembaban : ");
+    Serial.print(rataKelembaban);
+    Serial.println(" %");
+    Serial.println("------------------------------------------");
+  } else {
+    Serial.println("Semua percobaan pengambilan sampel gagal!");
+  }
+} 
+```
+Penjelasan fungsi setiap baris kode baru yang ditambahkan ke dalam fungsi `loop()` untuk menghitung rata-rata dari 5 kali pembacaan sensor:
+- `float totalSuhu = 0;` Mendeklarasikan variabel bertipe `float` untuk menampung penjumlahan seluruh data suhu dari sampel yang berhasil dibaca. Diinisialisasi dengan nilai `0`.
+- `float totalKelembaban = 0;` Mendeklarasikan variabel bertipe `float` untuk menampung akumulasi data kelembaban. Diinisialisasi dengan nilai `0`.
+- `int pembacaanValid = 0;` Mendeklarasikan variabel penanda bernilai integer untuk menghitung berapa kali sensor berhasil memberikan data valid (bukan NaN).
+- `for (int i = 0; i < 5; i++) { ... }` Struktur perulangan (*looping*) untuk mengulang proses pembacaan data sensor sebanyak 5 kali pengambilan sampel.
+- `totalSuhu += suhu;` Menambahkan nilai suhu yang baru dibaca ke dalam akumulator `totalSuhu` (singkatan dari `totalSuhu = totalSuhu + suhu`).
+- `totalKelembaban += kelembaban;` Menambahkan nilai kelembaban yang baru dibaca ke dalam akumulator `totalKelembaban`.
+- `pembacaanValid++;` Menambahkan angka `1` pada penghitung sampel yang valid setiap kali pembacaan tidak terdeteksi `isnan()`.
+- `delay(2000);` (di dalam perulangan) Memberikan jeda waktu 2 detik antar pengambilan sampel sesuai spesifikasi teknis sensor DHT22.
+- `if (pembacaanValid > 0) { ... }` Kondisi untuk memastikan bahwa pembagi tidak bernilai nol (mencegah *division by zero error*) jika seluruh 5 kali percobaan gagal dibaca.
+- `float rataSuhu = totalSuhu / pembacaanValid;` Menghitung rata-rata suhu dengan membagi total nilai suhu yang terkumpul dengan jumlah pembacaan yang valid.
+- `float rataKelembaban = totalKelembaban / pembacaanValid;` Menghitung rata-rata kelembaban dengan membagi total kelembaban yang terkumpul dengan jumlah pembacaan yang valid.
+
 ## Dokumentasi
 
 
