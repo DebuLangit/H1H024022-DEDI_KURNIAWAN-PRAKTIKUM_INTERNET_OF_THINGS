@@ -26,11 +26,13 @@ Percabangan `if-else` digunakan untuk memvalidasi hasil pembacaan. Jika suhu ata
 
 ## Pertanyaan Praktikum
 1. Diagram Alur (Flowchart) Proses Akuisisi Data Sensor DHT22
-2. Fungsi Perintah `isnan()`
+   <img width="451" height="512" alt="per praktikum iot mod 1 p1" src="https://github.com/user-attachments/assets/256bf9af-257d-44c4-a724-c9279e80371e" /> </br>
+   diagram alur
+3. Fungsi Perintah `isnan()`
    - Fungsi isnan() digunakan untuk memeriksa apakah data suhu atau kelembaban dari sensor DHT bernilai NaN (Not-a-Number) akibat gangguan komunikasi, daya, kabel, atau kerusakan sensor. Dengan demikian, program dapat membedakan data yang valid dan data yang mengalami error.
-3. Alasan Diperlukannya Delay Minimal 2 Detik
+4. Alasan Diperlukannya Delay Minimal 2 Detik
    - Delay minimal 2 detik diperlukan karena sensor DHT memiliki proses pembacaan dan konversi data yang membutuhkan waktu. Pembacaan terlalu cepat dapat menyebabkan data belum diperbarui, menghasilkan data yang salah atau berulang, maupun menyebabkan kegagalan pembacaan `(NaN)`.
-4. Modifikasi Program (Rata-Rata 5 Kali Pembacaan)
+5. Modifikasi Program (Rata-Rata 5 Kali Pembacaan)
 ```
 #include <DHT.h>
 
