@@ -1,8 +1,11 @@
 # Percobaan 1A Akuisisi Data Sensor DHT22 (Suhu dan Kelembaban)
+
 ## Detail Percobaan
 Percobaan 1A mengimplementasikan akuisisi data suhu dan kelembaban menggunakan sensor DHT11 saat praktikum pada ESP32. Sensor dihubungkan ke GPIO 4 dengan tegangan 3,3V, kemudian data dibaca menggunakan library DHT.h dan ditampilkan pada Serial Monitor setiap 2 detik. Fungsi isnan() digunakan untuk memastikan data yang diterima valid.
+
 ## Penjelasan Code
 Kode digunakan untuk membaca suhu dan kelembaban dari sensor DHT11 yang terhubung pada GPIO 4. Program menginisialisasi sensor dan komunikasi serial, kemudian membaca data secara berulang dan menampilkannya pada Serial Monitor setiap 3 detik.
+
 ## Penjelasan Function
 - `setup()`: Melakukan inisialisasi awal satu kali saat mikrokontroler dijalankan.
 - `loop()`: Menjalankan proses pembacaan sensor secara berulang.
@@ -13,11 +16,14 @@ Kode digunakan untuk membaca suhu dan kelembaban dari sensor DHT11 yang terhubun
 - `readHumidity()`: Membaca nilai kelembaban relatif.
 - `readTemperature()`: Membaca nilai suhu dalam °C.
 - `isnan()`: Memeriksa apakah data sensor valid atau bernilai NaN.
+
 ## Penjelasan Percabangan/Conditionial
 Percabangan `if-else` digunakan untuk memvalidasi hasil pembacaan. Jika suhu atau kelembaban tidak valid, program menampilkan pesan kegagalan. Jika data valid, hasil pembacaan suhu dan kelembaban ditampilkan ke Serial Monitor.
+
 ## Library/Dependencies
 - Library <DHT.h> digunakan untuk mempermudah komunikasi dengan sensor DHT11 sehingga proses pembacaan suhu dan kelembaban dapat dilakukan menggunakan fungsi seperti readTemperature() dan readHumidity().
 - Board package ESP8266, agar program dapat dikompilasi dan diupload ke ESP8266.
+
 ## Pertanyaan Praktikum
 1. Diagram Alur (Flowchart) Proses Akuisisi Data Sensor DHT22
 2. Fungsi Perintah `isnan()`
@@ -117,14 +123,36 @@ suhu dan kelembaban di dekat api </br>
 Percobaan ini mengimplementasikan hubungan antara sensor dan aktuator pada ESP32. Sensor DHT22 membaca suhu lingkungan, kemudian nilainya dibandingkan dengan threshold 30°C. Jika suhu melebihi batas, ESP32 memberikan sinyal HIGH untuk mengaktifkan relay/LED, sedangkan pada suhu ≤ 30°C aktuator dimatikan. Kondisi suhu dan aktuator dapat dipantau melalui Serial Monitor.
 
 ## Penjelasan Code
+Program merupakan sistem kendali otomatis yang menggunakan DHT11 pada GPIO 4 untuk membaca suhu dan relay pada GPIO 5 sebagai aktuator. Suhu dibandingkan dengan threshold 30°C. Jika suhu > 30°C, relay menyala (ON), sedangkan jika suhu ≤ 30°C, relay mati (OFF). Proses dilakukan berulang setiap 2 detik dan hasilnya ditampilkan pada Serial Monitor.
 
 ## Penjelasan Function
+- `setup()`: Melakukan konfigurasi awal sensor, komunikasi serial, dan pin relay.
+- `loop()`: Menjalankan pembacaan sensor dan pengendalian relay secara berulang.
+- `Serial.begin(115200)`: Mengaktifkan komunikasi Serial Monitor dengan kecepatan 115200 bps.
+- `dht.begin()`: Menginisialisasi sensor DHT11.
+- `pinMode(RELAYPIN, OUTPUT)`: Mengatur GPIO 5 sebagai output untuk relay.
+- `digitalWrite()`: Mengatur kondisi relay menggunakan sinyal HIGH atau LOW.
+- `dht.readTemperature()`: Membaca suhu dalam satuan Celsius.
+- `isnan()`: Memeriksa apakah data sensor valid.
+- `delay(2000)`: Memberikan jeda selama 2 detik sebelum pembacaan berikutnya.
 
 ## Penjelasan Percabangan/Conditionial
+Program menggunakan dua percabangan utama:
+- `if (isnan(suhu))`: Memeriksa apakah pembacaan suhu berhasil. Jika tidak valid, program menampilkan pesan kesalahan.
+- `if (suhu > suhuThreshold)`: Menentukan kondisi relay. Suhu > 30°C menyebabkan relay ON, sedangkan suhu ≤ 30°C menyebabkan relay OFF.
 
 ## Library/Dependencies
+- Library <DHT.h> digunakan untuk mempermudah komunikasi dengan sensor DHT11 sehingga proses pembacaan suhu dan kelembaban dapat dilakukan menggunakan fungsi seperti readTemperature() dan readHumidity().
+- Board package ESP8266, agar program dapat dikompilasi dan diupload ke ESP8266.
 
 ## Pertanyaan Praktikum
+1. Mengapa diperlukan nilai ambang batas (threshold)? </br> Nilai threshold digunakan sebagai batas pengambilan keputusan bagi mikrokontroler untuk menentukan kapan aktuator harus ON atau OFF berdasarkan data sensor. Dengan adanya threshold, perubahan data sensor dapat diterjemahkan menjadi tindakan otomatis.
+
+2. Apa yang terjadi jika suhuThreshold diturunkan menjadi 20°C? </br> Jika threshold diturunkan menjadi 20°C, sedangkan suhu ruangan berada di atas 25°C, kondisi suhu > suhuThreshold akan selalu terpenuhi. Akibatnya, aktuator akan terus menyala (ON) dan hanya mati jika suhu turun hingga 20°C atau lebih rendah.
+
+3. Perbedaan kendali kondisi tunggal dan histerisis
+   - Kondisi tunggal: Menggunakan satu threshold. Jika suhu berada di sekitar batas tersebut, aktuator dapat sering ON-OFF (chattering).
+   - Histerisis: Menggunakan dua threshold, yaitu batas atas untuk menyalakan dan batas bawah untuk mematikan aktuator. Jarak antara keduanya menjadi area aman (deadband) yang mencegah aktuator terlalu sering berganti kondisi.
 
 ## Dokumentasi
 <img width="383" height="511" alt="gambar" src="https://github.com/user-attachments/assets/6a7dc8a7-d546-4a0c-975b-b65972a7d9b6" /> </br>
