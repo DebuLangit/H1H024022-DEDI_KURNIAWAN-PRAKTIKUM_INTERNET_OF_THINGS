@@ -98,6 +98,17 @@ Penjelasan fungsi setiap baris kode baru yang ditambahkan ke dalam fungsi `loop(
 - `float rataKelembaban = totalKelembaban / pembacaanValid;` Menghitung rata-rata kelembaban dengan membagi total kelembaban yang terkumpul dengan jumlah pembacaan yang valid.
 
 ## Dokumentasi
+<img width="559" height="316" alt="gambar" src="https://github.com/user-attachments/assets/1969153c-3c2f-410b-8faa-0652ae595702" /> </br>
+Foto rangkaian </br>
+<img width="341" height="368" alt="gambar" src="https://github.com/user-attachments/assets/7b84d40a-8eb1-487c-ad07-d174f22db6f8" /> </br>
+suhu dan kelembaban dalam keadaan normal </br>
+<img width="328" height="362" alt="gambar" src="https://github.com/user-attachments/assets/d1fe95a6-ac44-40ed-9170-fab2b4d7429d" /> </br>
+suhu dan kelembaban dalam genggaman tangan </br>
+<img width="337" height="365" alt="gambar" src="https://github.com/user-attachments/assets/25114947-81d5-4620-81ee-fff5f59de351" /> </br>
+suhu dan kelembaban di dekat AC </br>
+<img width="327" height="366" alt="gambar" src="https://github.com/user-attachments/assets/e75d721d-a547-4a5b-bb06-b3ea451c0c08" /> </br>
+suhu dan kelembaban di dekat api </br>
+
 
 
 # Percobaan 2A: Kendali Aktuator Relay Berdasarkan Data Sensor
