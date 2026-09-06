@@ -148,13 +148,79 @@ Program menggunakan dua percabangan utama:
 - Board package ESP8266, agar program dapat dikompilasi dan diupload ke ESP8266.
 
 ## Pertanyaan Praktikum
-1. Mengapa diperlukan nilai ambang batas (threshold)? </br> Nilai threshold digunakan sebagai batas pengambilan keputusan bagi mikrokontroler untuk menentukan kapan aktuator harus ON atau OFF berdasarkan data sensor. Dengan adanya threshold, perubahan data sensor dapat diterjemahkan menjadi tindakan otomatis.
+### 1. Mengapa diperlukan nilai ambang batas (threshold)? 
+Nilai threshold digunakan sebagai batas pengambilan keputusan bagi mikrokontroler untuk menentukan kapan aktuator harus ON atau OFF berdasarkan data sensor. Dengan adanya threshold, perubahan data sensor dapat diterjemahkan menjadi tindakan otomatis.
 
-2. Apa yang terjadi jika suhuThreshold diturunkan menjadi 20°C? </br> Jika threshold diturunkan menjadi 20°C, sedangkan suhu ruangan berada di atas 25°C, kondisi suhu > suhuThreshold akan selalu terpenuhi. Akibatnya, aktuator akan terus menyala (ON) dan hanya mati jika suhu turun hingga 20°C atau lebih rendah.
+### 2. Apa yang terjadi jika suhuThreshold diturunkan menjadi 20°C? 
+Jika threshold diturunkan menjadi 20°C, sedangkan suhu ruangan berada di atas 25°C, kondisi suhu > suhuThreshold akan selalu terpenuhi. Akibatnya, aktuator akan terus menyala (ON) dan hanya mati jika suhu turun hingga 20°C atau lebih rendah.
 
-3. Perbedaan kendali kondisi tunggal dan histerisis
-   - Kondisi tunggal: Menggunakan satu threshold. Jika suhu berada di sekitar batas tersebut, aktuator dapat sering ON-OFF (chattering).
-   - Histerisis: Menggunakan dua threshold, yaitu batas atas untuk menyalakan dan batas bawah untuk mematikan aktuator. Jarak antara keduanya menjadi area aman (deadband) yang mencegah aktuator terlalu sering berganti kondisi.
+### 3. Perbedaan kendali kondisi tunggal dan histerisis
+- Kondisi tunggal: Menggunakan satu threshold. Jika suhu berada di sekitar batas tersebut, aktuator dapat sering ON-OFF (chattering).
+- Histerisis: Menggunakan dua threshold, yaitu batas atas untuk menyalakan dan batas bawah untuk mematikan aktuator. Jarak antara keduanya menjadi area aman (deadband) yang mencegah aktuator terlalu sering berganti kondisi.
+
+### 4. Modifikasi Program Menggunakan Dua Ambang Batas (Histerisis)
+```
+#include <DHT.h>
+
+#define DHTPIN 4
+#define DHTTYPE DHT22
+#define RELAYPIN 26
+
+DHT dht(DHTPIN, DHTTYPE);
+
+// Mendefinisikan dua ambang batas (Histerisis)
+const float suhuBatasAtas = 30.0;
+const float suhuBatasBawah = 28.0;
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+  pinMode(RELAYPIN, OUTPUT);
+  digitalWrite(RELAYPIN, LOW); // Aktuator mati di awal
+}
+
+void loop() {
+  float suhu = dht.readTemperature();
+
+  if (isnan(suhu)) {
+    Serial.println("Gagal membaca data sensor!");
+  } else {
+    Serial.print("Suhu: ");
+    Serial.print(suhu);
+    Serial.print(" °C -> ");
+
+    // Kendali menggunakan Histerisis
+    if (suhu > suhuBatasAtas) {
+      digitalWrite(RELAYPIN, HIGH);
+      Serial.println("Aktuator: ON");
+    } else if (suhu < suhuBatasBawah) {
+      digitalWrite(RELAYPIN, LOW);
+      Serial.println("Aktuator: OFF");
+    } else {
+      // Kondisi di mana suhu berada di antara 28.0 dan 30.0
+      Serial.println("Aktuator: STABIL (Mempertahankan Status Akhir)");
+    }
+  }
+  
+  delay(2000);
+}
+```
+Berikut adalah penjelasan modifikasi baris kode yang mengimplementasikan kendali dua ambang batas (histerisis):
+
+- `const float suhuBatasAtas = 30.0;`
+   Mendeklarasikan variabel ambang batas atas. Variabel ini berfungsi sebagai pemicu untuk mengaktifkan aktuator ketika suhu ruangan sudah terlalu panas (melebihi 30°C).
+
+- `const float suhuBatasBawah = 28.0;`
+   Mendeklarasikan variabel ambang batas bawah. Variabel ini menjadi pemicu untuk mematikan aktuator hanya jika suhu ruangan sudah benar-benar turun dan mendingin di bawah 28°C.
+
+- `if (suhu > suhuBatasAtas) { ... }`
+   Kondisi logika pertama: Jika data `suhu` terkini melampaui 30.0°C, maka program akan mengeksekusi `digitalWrite(RELAYPIN, HIGH)` untuk menyalakan relay/LED.
+
+- `else if (suhu < suhuBatasBawah) { ... }`
+   Kondisi logika kedua: Memeriksa apakah suhu sudah lebih rendah dari 28.0°C. Jika ya, perintah `digitalWrite(RELAYPIN, LOW)` dieksekusi untuk mematikan aktuator.
+
+- `else { ... }`
+   Blok aksi default. Apabila suhu berada pada rentang *deadband* (mulai dari 28.0°C hingga 30.0°C), program tidak memanggil fungsi `digitalWrite()` sama sekali. Efeknya, pin mikrokontroler akan mempertahankan status sinyal listrik terakhirnya. (Jika sebelumnya ON maka tetap ON, jika sebelumnya OFF maka tetap OFF).
 
 ## Dokumentasi
 <img width="383" height="511" alt="gambar" src="https://github.com/user-attachments/assets/6a7dc8a7-d546-4a0c-975b-b65972a7d9b6" /> </br>
@@ -176,6 +242,7 @@ Sistem bekerja melalui tiga tahapan utama:
 - **Pemrosesan (Process)** </br> Mikrokontroler mengolah data sensor menjadi nilai numerik menggunakan library `DHT.h`. Nilai tersebut kemudian dibandingkan dengan **threshold** menggunakan logika `if-else`.
 - **Aktuasi (Output)** </br> Hasil pemrosesan digunakan untuk memberikan sinyal `HIGH` atau `LOW` kepada aktuator seperti relay. Aktuator kemudian melakukan tindakan sesuai kondisi yang telah ditentukan.
 
-## 4. Kombinasi Akuisisi dan Kendali pada Sistem IoT </br> Penggabungan proses akuisisi data sensor dan kendali aktuator memungkinkan terbentuknya sistem **otomatis dan closed-loop**. Sistem dapat mengambil keputusan berdasarkan kondisi lingkungan tanpa memerlukan intervensi manusia secara terus-menerus.
+## 4. Kombinasi Akuisisi dan Kendali pada Sistem IoT
+Penggabungan proses akuisisi data sensor dan kendali aktuator memungkinkan terbentuknya sistem **otomatis dan closed-loop**. Sistem dapat mengambil keputusan berdasarkan kondisi lingkungan tanpa memerlukan intervensi manusia secara terus-menerus.
 - Penerapan pada Smart Farming </br> Sensor suhu dan kelembaban dapat digunakan untuk memantau kondisi tanaman. Jika kondisi lingkungan atau kelembaban tanah melewati batas tertentu, mikrokontroler dapat mengaktifkan relay dan **pompa air** secara otomatis. Pompa akan dimatikan ketika kondisi kembali normal.
 - Penerapan pada Smart Home </br> Sensor suhu dapat digunakan untuk memantau suhu ruangan dan mengendalikan **kipas atau AC**. Jika suhu melebihi batas yang ditentukan, sistem dapat mengaktifkan perangkat pendingin secara otomatis dan mematikannya ketika suhu sudah kembali sesuai kondisi yang diinginkan.
