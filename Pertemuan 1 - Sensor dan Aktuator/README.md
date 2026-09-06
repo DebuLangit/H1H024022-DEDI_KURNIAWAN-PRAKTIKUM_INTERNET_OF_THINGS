@@ -162,20 +162,20 @@ foto rangkaian
 
 # Pertanyaan Analisis
 
-1. Uraian Hasil Tugas pada Setiap Percobaan
-   - Percobaan 1A — Akuisisi Data Sensor </br> Mikrokontroler berhasil membaca data **suhu dan kelembaban** dari sensor DHT11/DHT22. Data dikirim secara digital dan ditampilkan pada **Serial Monitor** secara berkala. Program juga menggunakan fungsi `isnan()` untuk mendeteksi kegagalan pembacaan sensor.
-   - Percobaan 2A — Kendali Aktuator </br> Sistem berhasil menghubungkan data sensor dengan aktuator berupa **relay atau LED**. Nilai suhu digunakan sebagai dasar pengambilan keputusan berdasarkan **threshold**. Aktuator akan **ON** ketika suhu melebihi batas yang ditentukan dan **OFF** ketika suhu berada di bawah atau sama dengan batas tersebut.
+## 1. Uraian Hasil Tugas pada Setiap Percobaan
+- Percobaan 1A — Akuisisi Data Sensor </br> Mikrokontroler berhasil membaca data **suhu dan kelembaban** dari sensor DHT11/DHT22. Data dikirim secara digital dan ditampilkan pada **Serial Monitor** secara berkala. Program juga menggunakan fungsi `isnan()` untuk mendeteksi kegagalan pembacaan sensor.
+- Percobaan 2A — Kendali Aktuator </br> Sistem berhasil menghubungkan data sensor dengan aktuator berupa **relay atau LED**. Nilai suhu digunakan sebagai dasar pengambilan keputusan berdasarkan **threshold**. Aktuator akan **ON** ketika suhu melebihi batas yang ditentukan dan **OFF** ketika suhu berada di bawah atau sama dengan batas tersebut.
 
-2. Pengaruh Akurasi dan Waktu Tanggap Sensor
-   - Akurasi Sensor </br> Akurasi sensor berpengaruh terhadap ketepatan keputusan mikrokontroler. Kesalahan pembacaan suhu dapat menyebabkan aktuator menyala atau mati pada waktu yang tidak sesuai sehingga dapat memengaruhi efisiensi dan kinerja sistem.
-   - Waktu Tanggap (*Response Time*) </br> Waktu tanggap menentukan seberapa cepat sistem merespons perubahan kondisi lingkungan. Sensor dengan respons lambat menyebabkan mikrokontroler terlambat menerima perubahan data sehingga aktuator juga terlambat memberikan respons.
+## 2. Pengaruh Akurasi dan Waktu Tanggap Sensor
+- Akurasi Sensor </br> Akurasi sensor berpengaruh terhadap ketepatan keputusan mikrokontroler. Kesalahan pembacaan suhu dapat menyebabkan aktuator menyala atau mati pada waktu yang tidak sesuai sehingga dapat memengaruhi efisiensi dan kinerja sistem.
+- Waktu Tanggap (*Response Time*) </br> Waktu tanggap menentukan seberapa cepat sistem merespons perubahan kondisi lingkungan. Sensor dengan respons lambat menyebabkan mikrokontroler terlambat menerima perubahan data sehingga aktuator juga terlambat memberikan respons.
 
-3. Cara Kerja Sistem
+## 3. Cara Kerja Sistem
 Sistem bekerja melalui tiga tahapan utama:
-   - **Akuisisi (Input)** </br> Sensor DHT membaca suhu dan kelembaban lingkungan kemudian mengirimkan data digital ke mikrokontroler.
-   - **Pemrosesan (Process)** </br> Mikrokontroler mengolah data sensor menjadi nilai numerik menggunakan library `DHT.h`. Nilai tersebut kemudian dibandingkan dengan **threshold** menggunakan logika `if-else`.
-   - **Aktuasi (Output)** </br> Hasil pemrosesan digunakan untuk memberikan sinyal `HIGH` atau `LOW` kepada aktuator seperti relay. Aktuator kemudian melakukan tindakan sesuai kondisi yang telah ditentukan.
+- **Akuisisi (Input)** </br> Sensor DHT membaca suhu dan kelembaban lingkungan kemudian mengirimkan data digital ke mikrokontroler.
+- **Pemrosesan (Process)** </br> Mikrokontroler mengolah data sensor menjadi nilai numerik menggunakan library `DHT.h`. Nilai tersebut kemudian dibandingkan dengan **threshold** menggunakan logika `if-else`.
+- **Aktuasi (Output)** </br> Hasil pemrosesan digunakan untuk memberikan sinyal `HIGH` atau `LOW` kepada aktuator seperti relay. Aktuator kemudian melakukan tindakan sesuai kondisi yang telah ditentukan.
 
-4. Kombinasi Akuisisi dan Kendali pada Sistem IoT </br> Penggabungan proses akuisisi data sensor dan kendali aktuator memungkinkan terbentuknya sistem **otomatis dan closed-loop**. Sistem dapat mengambil keputusan berdasarkan kondisi lingkungan tanpa memerlukan intervensi manusia secara terus-menerus.
-   - Penerapan pada Smart Farming </br> Sensor suhu dan kelembaban dapat digunakan untuk memantau kondisi tanaman. Jika kondisi lingkungan atau kelembaban tanah melewati batas tertentu, mikrokontroler dapat mengaktifkan relay dan **pompa air** secara otomatis. Pompa akan dimatikan ketika kondisi kembali normal.
-   - Penerapan pada Smart Home </br> Sensor suhu dapat digunakan untuk memantau suhu ruangan dan mengendalikan **kipas atau AC**. Jika suhu melebihi batas yang ditentukan, sistem dapat mengaktifkan perangkat pendingin secara otomatis dan mematikannya ketika suhu sudah kembali sesuai kondisi yang diinginkan.
+## 4. Kombinasi Akuisisi dan Kendali pada Sistem IoT </br> Penggabungan proses akuisisi data sensor dan kendali aktuator memungkinkan terbentuknya sistem **otomatis dan closed-loop**. Sistem dapat mengambil keputusan berdasarkan kondisi lingkungan tanpa memerlukan intervensi manusia secara terus-menerus.
+- Penerapan pada Smart Farming </br> Sensor suhu dan kelembaban dapat digunakan untuk memantau kondisi tanaman. Jika kondisi lingkungan atau kelembaban tanah melewati batas tertentu, mikrokontroler dapat mengaktifkan relay dan **pompa air** secara otomatis. Pompa akan dimatikan ketika kondisi kembali normal.
+- Penerapan pada Smart Home </br> Sensor suhu dapat digunakan untuk memantau suhu ruangan dan mengendalikan **kipas atau AC**. Jika suhu melebihi batas yang ditentukan, sistem dapat mengaktifkan perangkat pendingin secara otomatis dan mematikannya ketika suhu sudah kembali sesuai kondisi yang diinginkan.
