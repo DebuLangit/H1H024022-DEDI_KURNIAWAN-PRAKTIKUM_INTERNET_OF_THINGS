@@ -1,2 +1,5 @@
 # H1H024022-DEDI_KURNIAWAN-PRAKTIKUM_INTERNET_OF_THINGS
-repo praktikum internet of things
+## Nama : Dedi Kurniawan
+## NIM : H1H024022
+## Shift Awal : B
+## Shift Sekarang : B
