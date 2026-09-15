@@ -262,13 +262,12 @@ Penjelasan:
 
 # Dokumentasi
 
-<img width="559" height="419" alt="gambar" src="https://github.com/user-attachments/assets/b1a3d101-3849-4c51-b5f5-e7e9ff527f45" />
-Rangkaian percobaan 2A
-<img width="559" height="419" alt="gambar" src="https://github.com/user-attachments/assets/9c402452-da8d-4176-8a76-10bcba570efe" />
-
-Rangkaian percobaan 2B
-<img width="684" height="505" alt="1 percobaan 1A" src="https://github.com/user-attachments/assets/f1f4fc40-7899-4232-b920-67acb666792a" />
-Serial Monitor Percobaan 2A
-<img width="680" height="763" alt="2 percobaan 2" src="https://github.com/user-attachments/assets/c5f73008-f397-401a-8c51-465ba2e6af73" />
-Serial Monitor Percobaan 2B
+<img width="559" height="419" alt="gambar" src="https://github.com/user-attachments/assets/b1a3d101-3849-4c51-b5f5-e7e9ff527f45" /> <br>
+Rangkaian percobaan 2A <br><br>
+<img width="559" height="419" alt="gambar" src="https://github.com/user-attachments/assets/9c402452-da8d-4176-8a76-10bcba570efe" /> <br>
+Rangkaian percobaan 2B <br><br>
+<img width="684" height="505" alt="1 percobaan 1A" src="https://github.com/user-attachments/assets/f1f4fc40-7899-4232-b920-67acb666792a" /> <br>
+Serial Monitor Percobaan 2A <br><br>
+<img width="680" height="763" alt="2 percobaan 2" src="https://github.com/user-attachments/assets/c5f73008-f397-401a-8c51-465ba2e6af73" /> <br>
+Serial Monitor Percobaan 2B  <br><br>
 
