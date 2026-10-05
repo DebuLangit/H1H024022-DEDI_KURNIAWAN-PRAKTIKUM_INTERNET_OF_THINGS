@@ -622,9 +622,7 @@ void loop() {
 
 * `DHT.h`: Library khusus dari Adafruit untuk membaca data suhu dan kelembaban langsung dari pin data sensor DHT11/DHT22 dengan mudah tanpa menulis protokol one-wire secara manual.
 
-## 5. Modifikasi program agar menambahkan satu topic perintah baru untuk mengendalikan
-aktuator kedua (misalnya buzzer), dengan fungsi callback yang dapat membedakan topic
-mana yang menerima pesan
+## 5. Modifikasi program agar menambahkan satu topic perintah baru untuk mengendalikan aktuator kedua (misalnya buzzer), dengan fungsi callback yang dapat membedakan topic mana yang menerima pesan
 
 ```cpp
 #include <ESP8266WiFi.h>
