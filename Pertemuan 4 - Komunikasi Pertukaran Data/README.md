@@ -237,6 +237,8 @@ void loop() {
 *   `while (WiFi.status() != WL_CONNECTED)`: Menahan (blocking) eksekusi program dan terus mencetak titik (`.`) selama mikrokontroler belum mendapatkan alamat IP dari router WiFi.
 *   `while (!client.connected())`: Looping untuk memastikan perangkat terhubung ke broker MQTT. Jika koneksi terputus atau belum terhubung, perangkat akan terus mencoba menghubungkan ulang (reconnect) dan melakukan subscribe ulang.
 *   `if (client.connect(clientId.c_str()))`: Memeriksa apakah upaya koneksi ke broker MQTT dengan ID acak berhasil dilakukan.
+*   `if (!client.connected())`: Memeriksa apakah koneksi MQTT terputus di dalam `loop()`.
+
 
 ## 4. Library yang Digunakan
 
@@ -614,7 +616,15 @@ void loop() {
 
 * `if (millis() - waktuTerakhirPublish > intervalPublish)`: Pola pengkondisian non-blocking timer. Menggantikan `delay()` dengan membandingkan selisih waktu sistem yang berjalan saat ini `(millis())` dengan waktu terakhir perintah dieksekusi.
 
-* `if (strcmp(topic, topicPerintah) == 0)`: Mengecek apakah topik masuk (string array of char) identik (nilainya 0, artinya tidak ada selisih karakter) dengan variabel topik tujuan untuk membedakan jalur logika antar aktuator.
+* `while (WiFi.status() != WL_CONNECTED)`: Penantian sambungan jaringan WiFi.
+
+* `while (!client.connected())`: Penantian sambungan broker MQTT.
+  
+* `if (client.connect(...)) ... else`: Mengecek keberhasilan koneksi ke broker MQTT.
+  
+* `if (!client.connected())`: Menjaga koneksi MQTT tetap aktif dalam perulangan utama.
+
+
 
 ## 4. Library yang Digunakan
 
