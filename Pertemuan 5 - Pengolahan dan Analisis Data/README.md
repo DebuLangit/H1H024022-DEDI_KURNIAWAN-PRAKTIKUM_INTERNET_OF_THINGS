@@ -1,776 +1,561 @@
 # Modul Praktikum 5: Pengolahan dan Analisis Data
 > Filtering, Analisis dan Visualisasi Data
 
-## Percobaan 4A: Subscribe dan Deserialisasi Data JSON untuk Kendali Aktuator
+## Percobaan 5A: Pengolahan Data Sensor pada ESP32 (Moving Average dan Statistik)
 
 ### 1. Detail Percobaan
 
-Percobaan 4A bertujuan mendemonstrasikan penerimaan perintah dari broker MQTT ke ESP8266. ESP8266 terhubung ke WiFi dan broker HiveMQ dengan melakukan subscribe pada topic tertentu. Pesan JSON yang diterima diproses melalui callback untuk mengambil perintah ON atau OFF, kemudian digunakan untuk mengendalikan LED.
+Percobaan 5A berfokus pada pemahaman dan implementasi pengolahan data sensor secara langsung di sisi perangkat (edge processing). Pada percobaan ini, mikrokontroler menggunakan filter moving average untuk menghaluskan data pembacaan serta mencatat nilai suhu minimum dan maksimum selama program dijalankan.
 
 ### 2. Penjelasan Kode dan Fungsi (Function)
 
 ```cpp
-// Library untuk menghubungkan ESP8266 ke jaringan WiFi
-#include <ESP8266WiFi.h>
+#include <Arduino.h>
 
-// Library untuk komunikasi menggunakan protokol MQTT
-#include <PubSubClient.h>
+const int N = 5;            // Jumlah sampel moving average
+float buffer[N];           // Menyimpan N pembacaan terakhir
+int indeks = 0;            // Posisi penulisan berikutnya pada buffer
+int jumlah = 0;            // Jumlah sampel yang sudah terisi
 
-// Library untuk membaca dan mengolah data dalam format JSON
-#include <ArduinoJson.h>
+float suhuMin = 1000.0;
+float suhuMax = -1000.0;
 
+// Mock function pengganti sensor DHT22
+float bacaSuhuMock() {
+    static unsigned long jumlahBaca = 0;
+    jumlahBaca++;
 
-// Nama jaringan WiFi yang akan digunakan
-const char* ssid = "MamaLime";
+    // Suhu dasar berubah secara bertahap
+    float suhuDasar = 28.0 + 2.0 * sin(jumlahBaca * 0.08);
 
-// Password jaringan WiFi
-const char* password = "sayaakanlawan";
+    // Noise kecil untuk mensimulasikan fluktuasi sensor
+    float noise = random(-5, 6) * 0.1;
 
-// Alamat broker MQTT yang digunakan
-const char* mqttServer = "broker.hivemq.com";
+    float suhu = suhuDasar + noise;
 
-// Port MQTT standar tanpa enkripsi
-const int mqttPort = 1883;
-
-// Topik MQTT yang digunakan untuk menerima perintah
-const char* topicPerintah = "KelompokDediPyka/perintah";
-
-// Nomor GPIO ESP8266 yang digunakan untuk mengendalikan LED
-const int ledPin = 4;
-
-
-// Membuat objek WiFiClient untuk koneksi jaringan
-WiFiClient espClient;
-
-// Membuat objek MQTT Client menggunakan koneksi WiFi
-PubSubClient client(espClient);
-
-
-// Fungsi callback akan dipanggil otomatis ketika pesan MQTT diterima
-void callback(char* topic, byte* payload, unsigned int length) {
-
-  // Variabel untuk menampung pesan yang diterima
-  String pesan;
-
-  // Membaca setiap karakter dari payload MQTT
-  for (unsigned int i = 0; i < length; i++) {
-
-    // Mengubah data byte menjadi karakter lalu memasukkannya ke String
-    pesan += (char)payload[i];
-  }
-
-
-  // Menampilkan informasi bahwa pesan telah diterima
-  Serial.print("Pesan diterima [");
-
-  // Menampilkan nama topik MQTT
-  Serial.print(topic);
-
-  // Menampilkan tanda pemisah
-  Serial.print("]: ");
-
-  // Menampilkan isi pesan yang diterima
-  Serial.println(pesan);
-
-
-  // Membuat dokumen JSON untuk menyimpan hasil parsing
-  JsonDocument doc;
-
-  // Mengubah teks JSON menjadi struktur data yang dapat dibaca program
-  DeserializationError error = deserializeJson(doc, pesan);
-
-
-  // Memeriksa apakah proses parsing JSON mengalami kesalahan
-  if (error) {
-
-    // Menampilkan pesan kesalahan pada Serial Monitor
-    Serial.print("Gagal parsing JSON: ");
-
-    // Menampilkan jenis kesalahan JSON
-    Serial.println(error.c_str());
-
-    // Menghentikan fungsi callback jika JSON tidak valid
-    return;
-  }
-
-
-  // Mengambil nilai "perintah" dari data JSON
-  const char* perintah = doc["perintah"];
-
-
-  // Memeriksa apakah perintah yang diterima adalah "ON"
-  if (String(perintah) == "ON") {
-
-    // Menyalakan LED dengan memberikan logika HIGH
-    digitalWrite(ledPin, HIGH);
-
-    // Menampilkan status aktuator
-    Serial.println("Aktuator: ON");
-
-
-  // Jika perintah yang diterima adalah "OFF"
-  } else if (String(perintah) == "OFF") {
-
-    // Mematikan LED dengan memberikan logika LOW
-    digitalWrite(ledPin, LOW);
-
-    // Menampilkan status aktuator
-    Serial.println("Aktuator: OFF");
-  }
-}
-
-
-// Fungsi untuk menghubungkan ESP8266 ke jaringan WiFi
-void hubungkanWiFi() {
-
-  // Memulai koneksi menggunakan SSID dan password
-  WiFi.begin(ssid, password);
-
-  // Menampilkan informasi proses koneksi
-  Serial.print("Menghubungkan ke WiFi");
-
-
-  // Mengulang selama ESP8266 belum terhubung
-  while (WiFi.status() != WL_CONNECTED) {
-
-    // Memberikan jeda selama 500 milidetik
-    delay(500);
-
-    // Menampilkan titik sebagai indikator proses koneksi
-    Serial.print(".");
-  }
-
-
-  // Menampilkan pesan ketika WiFi berhasil terhubung
-  Serial.println("\nWiFi berhasil terhubung!");
-}
-
-
-// Fungsi untuk menghubungkan ESP8266 ke broker MQTT
-void hubungkanMQTT() {
-
-  // Mengulang selama perangkat belum terhubung ke MQTT
-  while (!client.connected()) {
-
-    // Menampilkan status proses koneksi
-    Serial.print("Menghubungkan ke broker MQTT...");
-
-
-    // Membuat ID client MQTT secara acak
-    // random() digunakan agar ID tidak mudah sama dengan client lain
-    String clientId = "ESP8266Client-" + String(random(0xffff), HEX);
-
-
-    // Mencoba menghubungkan client ke broker MQTT
-    if (client.connect(clientId.c_str())) {
-
-      // Menampilkan bahwa koneksi berhasil
-      Serial.println("berhasil terhubung!");
-
-
-      // Berlangganan ke topik perintah
-      client.subscribe(topicPerintah);
-
-
-      // Menampilkan topik yang digunakan
-      Serial.print("Subscribe ke topic: ");
-      Serial.println(topicPerintah);
-
-
-    } else {
-
-      // Menampilkan pesan jika koneksi gagal
-      Serial.print("gagal, rc=");
-
-      // Menampilkan kode status koneksi MQTT
-      Serial.print(client.state());
-
-      // Memberikan informasi bahwa perangkat akan mencoba kembali
-      Serial.println(" coba lagi dalam 2 detik");
-
-      // Menunggu 2 detik sebelum mencoba kembali
-      delay(2000);
+    // Lonjakan suhu setiap 25 pembacaan untuk simulasi anomali
+    if (jumlahBaca % 25 == 0) {
+        suhu += 8.0;
     }
-  }
+
+    return suhu;
 }
 
+float hitungMovingAverage(float nilaiBaru) {
+    buffer[indeks] = nilaiBaru;
+    indeks = (indeks + 1) % N;
+    if (jumlah < N) jumlah++;
 
-// Fungsi setup() hanya dijalankan satu kali ketika ESP8266 mulai
+    float total = 0;
+    for (int i = 0; i < jumlah; i++) {
+        total += buffer[i];
+    }
+    return total / jumlah;
+}
+
 void setup() {
-
-  // Memulai komunikasi Serial dengan baud rate 115200
-  Serial.begin(115200);
-
-  // Mengatur pin LED sebagai OUTPUT
-  pinMode(ledPin, OUTPUT);
-
-  // Memastikan LED dalam kondisi mati saat awal
-  digitalWrite(ledPin, LOW);
-
-  // Menghubungkan ESP8266 ke WiFi
-  hubungkanWiFi();
-
-  // Menentukan alamat dan port broker MQTT
-  client.setServer(mqttServer, mqttPort);
-
-  // Mendaftarkan fungsi callback untuk menangani pesan MQTT
-  client.setCallback(callback);
+    Serial.begin(115200);
 }
 
-
-// Fungsi loop() dijalankan terus-menerus
 void loop() {
+    // Membaca data dari fungsi mock
+    float suhu = bacaSuhuMock();
 
-  // Jika koneksi MQTT terputus, lakukan koneksi ulang
-  if (!client.connected()) {
-    hubungkanMQTT();
-  }
+    if (isnan(suhu)) {
+        Serial.println("Pembacaan gagal, data diabaikan");
+    } else {
+        float suhuFilter = hitungMovingAverage(suhu);
 
-  // Memproses komunikasi MQTT dan memeriksa pesan yang masuk
-  // Fungsi ini harus dipanggil secara terus-menerus
-  client.loop();
+        if (suhu < suhuMin) suhuMin = suhu;
+        if (suhu > suhuMax) suhuMax = suhu;
+
+        Serial.print("Mentah: ");
+        Serial.print(suhu);
+        Serial.print(" | Filter: ");
+        Serial.print(suhuFilter);
+        Serial.print(" | Min: ");
+        Serial.print(suhuMin);
+        Serial.print(" | Max: ");
+        Serial.println(suhuMax);
+    }
+
+    delay(2000);
 }
 ```
 
-
 ### 3. Penjelasan Percabangan dan Kondisional
 
-*   `if (error)`: Mengevaluasi apakah proses deserialisasi (parsing) format JSON dari string ke objek JSON berhasil atau gagal. Jika gagal (format tidak valid), program akan mencetak pesan error dan fungsi callback dihentikan dengan `return`.
-*   `if (String(perintah) == "ON")` dan `else if (String(perintah) == "OFF")`: Memeriksa isi dari variabel `perintah`. Jika bernilai "ON", maka LED dinyalakan (atau diatur kecerahannya pada versi modifikasi). Jika "OFF", LED dimatikan.
-*   `while (WiFi.status() != WL_CONNECTED)`: Menahan (blocking) eksekusi program dan terus mencetak titik (`.`) selama mikrokontroler belum mendapatkan alamat IP dari router WiFi.
-*   `while (!client.connected())`: Looping untuk memastikan perangkat terhubung ke broker MQTT. Jika koneksi terputus atau belum terhubung, perangkat akan terus mencoba menghubungkan ulang (reconnect) dan melakukan subscribe ulang.
-*   `if (client.connect(clientId.c_str()))`: Memeriksa apakah upaya koneksi ke broker MQTT dengan ID acak berhasil dilakukan.
-*   `if (!client.connected())`: Memeriksa apakah koneksi MQTT terputus di dalam `loop()`.
+- `if (jumlahBaca % 25 == 0)`: Mengevaluasi jumlah pembacaan. Setiap kelipatan 25 pembacaan, program menambahkan nilai 8.0 pada suhu untuk mensimulasikan terjadinya lonjakan/anomali data.
+
+- `if (jumlah < N)`: Mengecek apakah jumlah sampel (buffer) yang terisi masih kurang dari nilai N (5). Jika ya, variabel `jumlah` diinkrementasi agar pembagian rata-rata hanya dilakukan pada jumlah data aktual yang telah masuk.
+
+- `if (isnan(suhu))`: Memeriksa validitas data hasil pembacaan suhu. Jika Not a Number (NaN), program mencetak pesan gagal dan memblokir eksekusi logika selanjutnya.
+
+- `if (suhu < suhuMin)` dan `if (suhu > suhuMax)`: Membandingkan data pembacaan terbaru dengan riwayat data ekstrem. Jika suhu saat ini lebih rendah dari suhu minimum yang tersimpan, atau lebih tinggi dari suhu maksimum, nilai variabel diperbarui dengan suhu terbaru.
 
 
 ### 4. Library yang Digunakan
 
-*   `ESP8266WiFi.h`: Mengelola koneksi jaringan WiFi (menghubungkan ESP8266 ke access point).
-*   `PubSubClient.h`: Menyediakan fungsi untuk koneksi MQTT, termasuk melakukan *publish* data dan *subscribe* ke topik tertentu.
-*   `ArduinoJson.h`: Digunakan untuk mengubah (serialize) objek data menjadi format string JSON atau membaca (deserialize/parsing) pesan string JSON yang masuk menjadi variabel yang bisa dibaca program.
+-   `Arduino.h`: Library standar pustaka inti Arduino untuk menyediakan fungsi-fungsi dasar seperti `Serial`, matematika `sin()`, `random()`, dan `delay()`.
 
-### 5. Modifikasi program kontrol kecerahan (PWM) berdasarkan nilai `intensitas` dari payload JSON
+### 5. Modifikasi Program untuk Menghitung Simpangan Baku (Standard Deviation)
 
 ```cpp
-// Mengimpor library yang dibutuhkan untuk WiFi, MQTT, dan manipulasi data JSON
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
+#include <Arduino.h>
+#include <math.h> // Tambahkan library math untuk fungsi sqrt()
 
-// Konfigurasi kredensial WiFi dan broker MQTT
-const char* ssid = "MamaLime";
-const char* password = "sayaakanlawan";
-const char* mqttServer = "broker.hivemq.com";
-const int mqttPort = 1883;
-const char* topicPerintah = "KelompokDediPyka/perintah";
+const int N = 5;            // Jumlah sampel moving average
+float buffer[N];           // Menyimpan N pembacaan terakhir
+int indeks = 0;            // Posisi penulisan berikutnya pada buffer
+int jumlah = 0;            // Jumlah sampel yang sudah terisi
 
-// Pin untuk LED
-const int ledPin = 4;
+float suhuMin = 1000.0;
+float suhuMax = -1000.0;
 
-// Inisialisasi object client WiFi dan MQTT
-WiFiClient espClient;
-PubSubClient client(espClient);
+// Mock function pengganti sensor DHT22
+float bacaSuhuMock() {
+    static unsigned long jumlahBaca = 0;
+    jumlahBaca++;
 
-// Fungsi callback dieksekusi otomatis ketika pesan masuk dari topik yang di-subscribe
-void callback(char* topic, byte* payload, unsigned int length) {
-  String pesan;
-  // Menggabungkan byte payload menjadi tipe data String
-  for (unsigned int i = 0; i < length; i++) {
-    pesan += (char)payload[i];
-  }
-  
-  Serial.print("Pesan diterima [");
-  Serial.print(topic);
-  Serial.print("]: ");
-  Serial.println(pesan);
+    // Suhu dasar berubah secara bertahap
+    float suhuDasar = 28.0 + 2.0 * sin(jumlahBaca * 0.08);
 
-  // Membuat dokumen JSON dan memparsing string pesan masuk
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, pesan);
+    // Noise kecil untuk mensimulasikan fluktuasi sensor
+    float noise = random(-5, 6) * 0.1;
 
-  // Percabangan untuk menangani error jika format pesan bukan JSON valid
-  if (error) {
-    Serial.print("Gagal parsing JSON: ");
-    Serial.println(error.c_str());
-    return; // Keluar dari fungsi jika error
-  }
+    float suhu = suhuDasar + noise;
 
-  // Mengambil nilai string "perintah" dari JSON
-  const char* perintah = doc["perintah"];
-  
-  // [MODIFIKASI] Mengambil nilai integer "intensitas" dari JSON (misal 0 - 1023 untuk ESP8266)
-  int intensitas = doc["intensitas"]; 
+    // Lonjakan suhu setiap 25 pembacaan untuk simulasi anomali
+    if (jumlahBaca % 25 == 0) {
+        suhu += 8.0;
+    }
 
-  // Percabangan logika aktuator berdasarkan perintah
-  if (String(perintah) == "ON") {
-    // [MODIFIKASI] Menggunakan analogWrite untuk mengatur kecerahan LED sesuai nilai intensitas (PWM)
-    analogWrite(ledPin, intensitas);
-    Serial.print("Aktuator: ON, Intensitas: ");
-    // [MODIFIKASI] Menampilkan nilai intensitas di Serial Monitor
-    Serial.println(intensitas); 
-  } else if (String(perintah) == "OFF") {
-    // [MODIFIKASI] Menggunakan analogWrite dengan nilai 0 untuk mematikan LED sepenuhnya
-    analogWrite(ledPin, 0); 
-    Serial.println("Aktuator: OFF");
-  }
+    return suhu;
 }
 
-// Fungsi untuk menghubungkan ESP8266 ke router WiFi
-void hubungkanWiFi() {
-  WiFi.begin(ssid, password);
-  Serial.print("Menghubungkan ke WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi berhasil terhubung!");
-}
+float rataRataSaatIni = 0; // Tambahkan variabel global untuk menyimpan rata-rata
 
-// Fungsi untuk membuat koneksi ke broker MQTT
-void hubungkanMQTT() {
-  while (!client.connected()) {
-    Serial.print("Menghubungkan ke broker MQTT...");
-    // Membuat Client ID yang unik menggunakan random hex
-    String clientId = "ESP8266Client-" + String(random(0xffff), HEX);
+float hitungMovingAverage(float nilaiBaru) {
+    buffer[indeks] = nilaiBaru;
+    indeks = (indeks + 1) % N;
+    if (jumlah < N) jumlah++;
+
+    float total = 0;
+    for (int i = 0; i < jumlah; i++) {
+        total += buffer[i];
+    }
     
-    // Jika berhasil terhubung ke broker
-    if (client.connect(clientId.c_str())) {
-      Serial.println("berhasil terhubung!");
-      // Wajib melakukan subscribe setiap kali koneksi MQTT (re)connect
-      client.subscribe(topicPerintah); 
-      Serial.print("Subscribe ke topic: ");
-      Serial.println(topicPerintah);
-    } else {
-      // Jika gagal, tampilkan status kode error
-      Serial.print("gagal, rc=");
-      Serial.print(client.state());
-      Serial.println(" coba lagi dalam 2 detik");
-      delay(2000);
+    rataRataSaatIni = total / jumlah; // Simpan nilai rata-rata ke variabel global
+    return rataRataSaatIni;
+}
+
+// FUNGSI BARU: Menghitung simpangan baku dari data di dalam buffer
+float hitungSimpanganBaku() {
+    if (jumlah == 0) return 0; // Mencegah error jika buffer kosong
+    
+    float jumlahVarians = 0; // Variabel untuk menyimpan total selisih kuadrat
+    for (int i = 0; i < jumlah; i++) {
+        // (x - mean)^2
+        jumlahVarians += pow(buffer[i] - rataRataSaatIni, 2); 
     }
-  }
+    
+    // Simpangan baku = akar kuadrat dari (jumlahVarians / jumlah data)
+    return sqrt(jumlahVarians / jumlah); 
 }
 
-// Fungsi inisialisasi yang berjalan sekali saat mikrokontroler dinyalakan
 void setup() {
-  Serial.begin(115200); // Kecepatan komunikasi serial
-  
-  pinMode(ledPin, OUTPUT); // Mengatur pin LED sebagai OUTPUT
-  digitalWrite(ledPin, LOW); // Memastikan LED mati di awal
-  
-  hubungkanWiFi(); // Panggil fungsi koneksi WiFi
-  
-  client.setServer(mqttServer, mqttPort); // Tentukan alamat broker MQTT
-  client.setCallback(callback); // Daftarkan fungsi callback untuk menangani pesan masuk
+    Serial.begin(115200);
 }
 
-// Fungsi utama yang berjalan terus-menerus
 void loop() {
-  // Jika MQTT terputus, coba hubungkan kembali
-  if (!client.connected()) {
-    hubungkanMQTT();
-  }
-  // Menjaga koneksi MQTT tetap aktif dan memproses antrian pesan masuk
-  client.loop(); 
+    float suhu = bacaSuhuMock();
+
+    if (isnan(suhu)) {
+        Serial.println("Pembacaan gagal, data diabaikan");
+    } else {
+        float suhuFilter = hitungMovingAverage(suhu);
+        float simpanganBaku = hitungSimpanganBaku(); // Memanggil fungsi hitung simpangan baku
+
+        if (suhu < suhuMin) suhuMin = suhu;
+        if (suhu > suhuMax) suhuMax = suhu;
+
+        Serial.print("Mentah: ");
+        Serial.print(suhu);
+        Serial.print(" | Filter: ");
+        Serial.print(suhuFilter);
+        Serial.print(" | StdDev: ");         // Menampilkan label simpangan baku
+        Serial.print(simpanganBaku);         // Menampilkan nilai simpangan baku
+        Serial.print(" | Min: ");
+        Serial.print(suhuMin);
+        Serial.print(" | Max: ");
+        Serial.println(suhuMax);
+    }
+    delay(2000);
 }
 ```
 
 
-## Percobaan 4B: Pertukaran Data Dua Arah (Publish dan Subscribe Secara Bersamaan)
+## Percobaan 5B: Akuisisi, Analisis, dan Visualisasi Data
 
 ### 1. Detail Percobaan
 
-Percobaan 4B bertujuan mendemonstrasikan komunikasi dua arah (*bidirectional*) secara *non-blocking* menggunakan MQTT. Mikrokontroler berperan sebagai *Publisher* dan *Subscriber*, dengan membaca suhu dari sensor DHT11 setiap 5 detik menggunakan `millis()`, kemudian mengirimkannya dalam format JSON. Secara bersamaan, mikrokontroler menerima perintah melalui topik MQTT untuk mengendalikan LED dan buzzer secara responsif tanpa mengganggu proses pembacaan sensor.
+Percobaan 5B mendemonstrasikan tahapan pengolahan data pada sisi komputer (server/PC). Praktikum ini meliputi pengambilan data yang dipublikasikan mikrokontroler lewat MQTT, menyimpan data tersebut dalam file CSV, menghitung statistik deskriptif dan deteksi anomali menggunakan perhitungan z-score, dan terakhir memvisualisasikan hasilnya ke dalam bentuk grafik.
 
 
-### 2. Penjelasan Kode dan Fungsi (Function)
+### 2. Penjelasan (`percobaan5b.ino`)
 
 ```cpp
-// Library untuk koneksi WiFi pada ESP8266
 #include <ESP8266WiFi.h>
-
-// Library untuk komunikasi MQTT
 #include <PubSubClient.h>
-
-// Library untuk mengolah data JSON
 #include <ArduinoJson.h>
 
-// Library untuk menggunakan sensor DHT
-#include <DHT.h>
-
-
-// Nama jaringan WiFi
 const char* ssid = "MamaLime";
-
-// Password jaringan WiFi
 const char* password = "sayaakanlawan";
-
-// Alamat broker MQTT
 const char* mqttServer = "broker.hivemq.com";
-
-// Port MQTT
 const int mqttPort = 1883;
 
-// Topik untuk mengirim data sensor
-const char* topicData = "KelompokDediPyka/data";
-
-// Topik untuk menerima perintah
+// Topic MQTT
 const char* topicPerintah = "KelompokDediPyka/perintah";
+const char* topicData = "KelompokDediPyka/data"; // Topic untuk kirim data suhu
 
+const int ledPin = 4; // GPIO4 (D2 pada NodeMCU)
 
-// GPIO yang digunakan untuk DATA sensor DHT11
-#define DHTPIN 5
-
-// Menentukan jenis sensor yang digunakan adalah DHT11
-#define DHTTYPE DHT11
-
-
-// GPIO yang digunakan untuk LED
-const int ledPin = 4;
-
-
-// Membuat objek sensor DHT
-DHT dht(DHTPIN, DHTTYPE);
-
-// Membuat objek koneksi WiFi
 WiFiClient espClient;
-
-// Membuat objek MQTT Client
 PubSubClient client(espClient);
 
+unsigned long lastSend = 0; // Timer untuk interval pengiriman data
 
-// Menyimpan waktu terakhir data sensor dikirim
-unsigned long waktuTerakhirPublish = 0;
+// Mock function pengganti sensor DHT22
+float bacaSuhuMock() {
+    static unsigned long jumlahBaca = 0;
+    jumlahBaca++;
 
-// Menentukan interval pengiriman data, yaitu 5000 ms atau 5 detik
-const long intervalPublish = 5000;
+    // Suhu dasar berubah secara bertahap
+    float suhuDasar = 28.0 + 2.0 * sin(jumlahBaca * 0.08);
 
-// Fungsi callback dipanggil ketika terdapat pesan MQTT yang masuk
+    // Noise kecil untuk mensimulasikan fluktuasi sensor
+    float noise = random(-5, 6) * 0.1;
+
+    float suhu = suhuDasar + noise;
+
+    // Lonjakan suhu setiap 25 pembacaan untuk simulasi anomali
+    if (jumlahBaca % 25 == 0) {
+        suhu += 8.0;
+    }
+
+    return suhu;
+}
+
+// Fungsi callback dipanggil otomatis setiap ada pesan perintah masuk
 void callback(char* topic, byte* payload, unsigned int length) {
+    String pesan;
+    for (unsigned int i = 0; i < length; i++) {
+        pesan += (char)payload[i];
+    }
+    Serial.print("Pesan diterima [");
+    Serial.print(topic);
+    Serial.print("]: ");
+    Serial.println(pesan);
 
-  // Variabel untuk menyimpan pesan yang diterima
-  String pesan;
+    // Deserialisasi data JSON yang diterima
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, pesan);
 
+    if (error) {
+        Serial.print("Gagal parsing JSON: ");
+        Serial.println(error.c_str());
+        return;
+    }
 
-  // Membaca seluruh karakter pada payload
-  for (unsigned int i = 0; i < length; i++) {
-
-    // Mengubah byte menjadi karakter
-    pesan += (char)payload[i];
-  }
-
-
-  // Membuat objek untuk menyimpan data JSON
-  JsonDocument doc;
-
-
-  // Mengubah pesan JSON menjadi struktur data
-  // Jika parsing gagal, fungsi langsung dihentikan
-  if (deserializeJson(doc, pesan)) return;
-
-
-  // Mengambil nilai "perintah" dari JSON
-  const char* perintah = doc["perintah"];
-
-
-  // Jika perintah adalah ON, LED HIGH.
-  // Jika selain ON, LED dibuat LOW.
-  digitalWrite(ledPin, String(perintah) == "ON" ? HIGH : LOW);
-
-
-  // Menampilkan perintah yang diterima pada Serial Monitor
-  Serial.print("Perintah diterima -> Aktuator: ");
-
-  // Menampilkan nilai perintah
-  Serial.println(perintah);
+    const char* perintah = doc["perintah"];
+    if (perintah != NULL) {
+        if (String(perintah) == "ON") {
+            digitalWrite(ledPin, HIGH);
+            Serial.println("Aktuator: ON");
+        } else if (String(perintah) == "OFF") {
+            digitalWrite(ledPin, LOW);
+            Serial.println("Aktuator: OFF");
+        }
+    }
 }
 
-// Fungsi untuk menghubungkan ESP8266 ke WiFi
 void hubungkanWiFi() {
-
-  // Memulai koneksi menggunakan SSID dan password
-  WiFi.begin(ssid, password);
-
-
-  // Menunggu sampai ESP8266 berhasil terhubung
-  while (WiFi.status() != WL_CONNECTED) {
-
-    // Memberikan jeda 500 ms
-    delay(500);
-  }
-
-
-  // Menampilkan pesan setelah berhasil terhubung
-  Serial.println("WiFi berhasil terhubung!");
+    WiFi.begin(ssid, password);
+    Serial.print("Menghubungkan ke WiFi");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println("\nWiFi berhasil terhubung!");
 }
 
-// Fungsi untuk menghubungkan ESP8266 ke broker MQTT
 void hubungkanMQTT() {
-
-  // Mengulang koneksi selama MQTT belum terhubung
-  while (!client.connected()) {
-
-    // Membuat ID client MQTT secara acak
-    String clientId = "ESP8266Client-" + String(random(0xffff), HEX);
-
-
-    // Mencoba menghubungkan ESP8266 ke broker
-    if (client.connect(clientId.c_str())) {
-
-      // Subscribe ke topik yang digunakan untuk menerima perintah
-      client.subscribe(topicPerintah);
-
-      // Menampilkan informasi koneksi
-      Serial.println("Terhubung dan subscribe topic perintah");
-
-
-    } else {
-
-      // Jika gagal, tunggu 2 detik sebelum mencoba kembali
-      delay(2000);
+    while (!client.connected()) {
+        Serial.print("Menghubungkan ke broker MQTT...");
+        String clientId = "ESP8266Client-" + String(random(0xffff), HEX);
+        if (client.connect(clientId.c_str())) {
+            Serial.println("berhasil terhubung!");
+            client.subscribe(topicPerintah); // Subscribe ke topic perintah
+            Serial.print("Subscribe ke topic: ");
+            Serial.println(topicPerintah);
+        } else {
+            Serial.print("gagal, rc=");
+            Serial.print(client.state());
+            Serial.println(" coba lagi dalam 2 detik");
+            delay(2000);
+        }
     }
-  }
 }
 
-// Fungsi setup() dijalankan satu kali ketika ESP8266 dinyalakan
 void setup() {
-
-  // Memulai komunikasi Serial dengan baud rate 115200
-  Serial.begin(115200);
-
-  // Mengatur GPIO LED sebagai OUTPUT
-  pinMode(ledPin, OUTPUT);
-
-  // Memulai sensor DHT11
-  dht.begin();
-
-  // Menghubungkan ESP8266 ke WiFi
-  hubungkanWiFi();
-
-  // Menentukan alamat dan port broker MQTT
-  client.setServer(mqttServer, mqttPort);
-
-  // Menentukan fungsi callback untuk pesan MQTT
-  client.setCallback(callback);
+    Serial.begin(115200);
+    pinMode(ledPin, OUTPUT);
+    digitalWrite(ledPin, LOW);
+    
+    hubungkanWiFi();
+    client.setServer(mqttServer, mqttPort);
+    client.setCallback(callback);
 }
 
-// Fungsi loop() berjalan terus-menerus
 void loop() {
-
-  // Memastikan koneksi MQTT tetap tersedia
-  if (!client.connected()) hubungkanMQTT();
-
-
-  // Memproses pesan MQTT yang masuk
-  client.loop();
-
-
-  // Mengecek apakah sudah waktunya mengirim data sensor
-  if (millis() - waktuTerakhirPublish > intervalPublish) {
-
-    // Menyimpan waktu pengiriman terakhir
-    waktuTerakhirPublish = millis();
-
-
-    // Membaca suhu dari sensor DHT11
-    float suhu = dht.readTemperature();
-
-
-    // Memastikan hasil pembacaan sensor valid
-    if (!isnan(suhu)) {
-
-      // Membuat dokumen JSON
-      JsonDocument doc;
-
-
-      // Menyimpan nilai suhu ke dalam JSON
-      doc["suhu"] = suhu;
-
-
-      // Menyediakan buffer untuk menyimpan JSON
-      char buffer[128];
-
-
-      // Mengubah data JSON menjadi teks
-      serializeJson(doc, buffer);
-
-
-      // Mengirim data JSON ke topicData melalui MQTT
-      client.publish(topicData, buffer);
-
-
-      // Menampilkan data yang dikirim pada Serial Monitor
-      Serial.print("Data terkirim: ");
-
-      // Menampilkan isi JSON
-      Serial.println(buffer);
+    if (!client.connected()) {
+        hubungkanMQTT();
     }
-  }
+    client.loop(); // Wajib dipanggil terus-menerus agar pesan callback dapat diterima
+
+    // Kirim data suhu mock setiap 2 detik (2000 ms)
+    unsigned long now = millis();
+    if (now - lastSend > 2000) {
+        lastSend = now;
+
+        float suhu = bacaSuhuMock();
+
+        // Buat payload JSON
+        JsonDocument doc;
+        doc["suhu"] = suhu;
+
+        char buffer[128];
+        serializeJson(doc, buffer);
+
+        // Publish ke topic data
+        client.publish(topicData, buffer);
+        Serial.print("Publish data suhu: ");
+        Serial.println(buffer);
+    }
 }
 ```
 
 
-### 3. Penjelasan Percabangan dan Kondisional
+### 3. Skrip Python (modul5_analisis_data.py)
 
-* `if (deserializeJson(doc, pesan)) return;`: Jalan pintas untuk mengecek error. Jika parsing JSON gagal (mengembalikan nilai true pada kondisi error), fungsi `callback` langsung dibatalkan.
+Skrip Python ini berfungsi sebagai penerima (subscriber) di sisi PC yang mengolah data yang diterbitkan oleh ESP8266 di atas.
+```py
+import json
+import time
+import paho.mqtt.client as mqtt
+import pandas as pd
+import matplotlib.pyplot as plt
 
-* `String(perintah) == "ON" ? HIGH : LOW`: Ternary operator yang bertindak sebagai if-else sebaris. Jika perintah bernilai "ON", fungsi ini mengembalikan status logika `HIGH`. Jika tidak, mengembalikan `LOW`.
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC = "KelompokDediPyka/data"  # Samakan dengan topicData pada ESP32
+JUMLAH_SAMPEL = 30  # Jumlah data yang dikumpulkan
 
-* `if (!isnan(suhu))`: Validasi pembacaan sensor. Kondisi ini memastikan data yang dikirim hanya dieksekusi jika suhu berupa angka valid (bukan Not a Number akibat kegagalan baca sensor DHT).
+data = []
 
-* `if (millis() - waktuTerakhirPublish > intervalPublish)`: Pola pengkondisian non-blocking timer. Menggantikan `delay()` dengan membandingkan selisih waktu sistem yang berjalan saat ini `(millis())` dengan waktu terakhir perintah dieksekusi.
+def on_connect(client, userdata, flags, reason_code, properties):
+    print("Terhubung ke broker, kode:", reason_code)
+    client.subscribe(TOPIC)
 
-* `while (WiFi.status() != WL_CONNECTED)`: Penantian sambungan jaringan WiFi.
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode())
+        suhu = float(payload["suhu"])
+    except (ValueError, KeyError):
+        print("Data tidak valid, diabaikan")
+        return
 
-* `while (!client.connected())`: Penantian sambungan broker MQTT.
-  
-* `if (client.connect(...)) ... else`: Mengecek keberhasilan koneksi ke broker MQTT.
-  
-* `if (!client.connected())`: Menjaga koneksi MQTT tetap aktif dalam perulangan utama.
+    data.append({"waktu": time.strftime("%Y-%m-%d %H:%M:%S"), "suhu": suhu})
+    print(f"[{len(data)}/{JUMLAH_SAMPEL}] suhu = {suhu}")
 
+    if len(data) >= JUMLAH_SAMPEL:
+        client.disconnect()
 
+# Tahap 1: Akuisisi data dari MQTT
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect(BROKER, PORT)
+client.loop_forever()
 
-### 4. Library yang Digunakan
+# Tahap 2: Simpan ke CSV
+df = pd.DataFrame(data)
+df.to_csv("data_suhu.csv", index=False)
+print("Data tersimpan di data_suhu.csv")
 
-* `ESP8266WiFi.h`, `PubSubClient.h`, `ArduinoJson.h`: Berfungsi sama seperti pada Percobaan 4A.
+# Tahap 3: Analisis statistik dan deteksi anomali (z-score)
+rata2 = df["suhu"].mean()
+std = df["suhu"].std()
 
-* `DHT.h`: Library khusus dari Adafruit untuk membaca data suhu dan kelembaban langsung dari pin data sensor DHT11/DHT22 dengan mudah tanpa menulis protokol one-wire secara manual.
+if std == 0:
+    df["zscore"] = 0.0
+else:
+    df["zscore"] = (df["suhu"] - rata2) / std
 
-#3# 5. Modifikasi program agar menambahkan satu topic perintah baru untuk mengendalikan aktuator kedua (misalnya buzzer), dengan fungsi callback yang dapat membedakan topic mana yang menerima pesan
+df["anomali"] = df["zscore"].abs() > 2
 
-```cpp
-#include <ESP8266WiFi.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
-#include <DHT.h>
+print(f"Rata-rata   : {rata2:.2f}")
+print(f"Std deviasi : {std:.2f}")
+print(f"Minimum     : {df['suhu'].min():.2f}")
+print(f"Maksimum    : {df['suhu'].max():.2f}")
+print(f"Jumlah anomali: {df['anomali'].sum()}")
 
-const char* ssid = "MamaLime";
-const char* password = "sayaakanlawan";
-const char* mqttServer = "broker.hivemq.com";
-const int mqttPort = 1883;
+# Tahap 4: Visualisasi
+plt.figure(figsize=(10, 4))
+plt.plot(df.index, df["suhu"], marker="o", label="Suhu")
+anom = df[df["anomali"]]
+plt.scatter(anom.index, anom["suhu"], color="red", s=100, label="Anomali", zorder=3)
+plt.axhline(rata2, color="gray", linestyle="--", label="Rata-rata")
+plt.xlabel("Urutan data")
+plt.ylabel("Suhu (°C)")
+plt.title("Data Suhu dan Deteksi Anomali")
+plt.legend()
+plt.tight_layout()
+plt.savefig("grafik_suhu.png")
+plt.show()
+```
 
-// Deklarasi topik-topik MQTT
-const char* topicData = "KelompokDediPyka/data";
-const char* topicPerintah = "KelompokDediPyka/perintah";
-// [MODIFIKASI] Menambahkan topik baru khusus untuk mengendalikan buzzer
-const char* topicBuzzer = "KelompokDediPyka/buzzer"; 
+- Tahap 1 (Akuisisi Data MQTT): Membuat objek klien, berlangganan ke topicData, dan mengambil muatan JSON menggunakan loop hingga jumlah sampel yang dibutuhkan terpenuhi (30 data).
+- Tahap 2 (Simpan ke CSV): Memanfaatkan pustaka `pandas` untuk mengubah daftar data list ke format tabular (DataFrame) dan menyimpannya ke `data_suhu.csv`.
+- Tahap 3 (Analisis & Z-Score): Menghitung mean, simpangan baku, nilai minimum, dan maksimum. Digunakan rumus $z = (x - rata-rata) / std$ untuk mendeteksi anomali. Nilai anomali ditandai menjadi `True` jika jarak $\vert{}z\vert{} > 2$.
+- Tahap 4 (Visualisasi): Menggunakan pustaka `matplotlib` untuk menampilkan plot grafis yang menyoroti data suhu biasa dengan garis, dan data anomali dengan titik (scatter) berwarna merah.
 
-#define DHTPIN 5
-#define DHTTYPE DHT11
+### 4. Penjelasan Percabangan dan Kondisional
 
-const int ledPin = 4;
-// [MODIFIKASI] Mendefinisikan pin mikrokontroler yang terhubung ke aktuator Buzzer (misal GPIO 14 / D5)
-const int buzzerPin = 14; 
+- `if (error)` pada program `.ino`: Mengevaluasi apakah proses parsing dokumen JSON gagal dilakukan. Jika iya, program mencetak string error dari lib ArduinoJson dan dihentikan.
 
-DHT dht(DHTPIN, DHTTYPE);
-WiFiClient espClient; 
-PubSubClient client(espClient);
+- `if (perintah != NULL)` pada program `.ino`: Memastikan atribut perintah ada dalam key JSON yang diterima. Selanjutnya menggunakan `if (String(perintah) == "ON")` dan `else if` untuk menyalakan/mematikan lampu LED.
 
-unsigned long waktuTerakhirPublish = 0;
-const long intervalPublish = 5000;
+- `if (now - lastSend > 2000)` pada `.ino`: Menggunakan millis() untuk pengaturan penjadwalan non-blocking tiap 2 detik tanpa harus menghentikan (delay) penerimaan MQTT.
 
-// Fungsi callback untuk menangani semua pesan masuk dari topik yang disubscribe
-void callback(char* topic, byte* payload, unsigned int length) {
-  String pesan;
-  for (unsigned int i = 0; i < length; i++) {
-    pesan += (char)payload[i];
-  }
-  
-  JsonDocument doc;
-  if (deserializeJson(doc, pesan)) return; // abaikan jika parsing gagal
+- `try - except (ValueError, KeyError)` pada skrip Python: Menangani potensi error pada saat parsing string JSON atau mengonversi data ke tipe `float`, sehingga program Python tidak hancur (crash) apabila pesan string rusak.
 
-  // [MODIFIKASI] Percabangan untuk memeriksa jika pesan berasal dari topik LED (topicPerintah)
-  if (strcmp(topic, topicPerintah) == 0) {
-    const char* perintah = doc["perintah"];
-    digitalWrite(ledPin, String(perintah) == "ON" ? HIGH : LOW);
-    Serial.print("LED Perintah: ");
-    Serial.println(perintah);
-  } 
-  // [MODIFIKASI] Percabangan (else if) memeriksa jika pesan berasal dari topik Buzzer (topicBuzzer)
-  else if (strcmp(topic, topicBuzzer) == 0) {
-    // [MODIFIKASI] Mengekstrak kunci "status" dari pesan JSON untuk topik buzzer (contoh: {"status": "ON"})
-    const char* status = doc["status"]; 
-    // [MODIFIKASI] Menyalakan (HIGH) atau mematikan (LOW) pin buzzer berdasarkan nilai dari "status"
-    digitalWrite(buzzerPin, String(status) == "ON" ? HIGH : LOW);
-    Serial.print("Buzzer Perintah: ");
-    Serial.println(status);
-  }
-}
+- `if len(data) >= JUMLAH_SAMPEL` pada skrip Python: Memutuskan sambungan ke MQTT secara paksa begitu jumlah array data telah mencapai ambang batas yang ditentukan (30 buah).
 
-void hubungkanWiFi() {
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
-  Serial.println("WiFi berhasil terhubung!");
-}
+- `if std == 0` pada skrip Python: Mencegah ZeroDivisionError secara kondisional apabila deviasi/simpangan baku dari data ternyata bernilai statis (0), dengan memberikan status zscore nilai 0.0 statis.
 
-void hubungkanMQTT() {
-  while (!client.connected()) {
-    String clientId = "ESP8266Client-" + String(random(0xffff), HEX);
-    if (client.connect(clientId.c_str())) {
-      // Subscribe ke topik kontrol LED
-      client.subscribe(topicPerintah);
-      // [MODIFIKASI] Menambahkan pendaftaran (subscribe) agar mikrokontroler juga mendengarkan pesan dari topik Buzzer
-      client.subscribe(topicBuzzer); 
-      Serial.println("Terhubung dan subscribe ke topik perintah LED & Buzzer");
-    } else {
-      delay(2000);
-    }
-  }
-}
+### 5. Library yang Digunakan
 
-void setup() {
-  Serial.begin(115200);
-  
-  pinMode(ledPin, OUTPUT);
-  // [MODIFIKASI] Mengatur pin buzzer sebagai OUTPUT penggerak aktuator
-  pinMode(buzzerPin, OUTPUT); 
-  // [MODIFIKASI] Memastikan buzzer dalam keadaan mati saat perangkat pertama kali menyala
-  digitalWrite(buzzerPin, LOW); 
-  
-  dht.begin();
-  hubungkanWiFi();
-  client.setServer(mqttServer, mqttPort);
-  client.setCallback(callback);
-}
+- `ESP8266WiFi.h`: Untuk menyambungkan hardware ke access point jaringan.
+- `PubSubClient.h`: Menginisialisasi publisher/subscriber komunikasi broker MQTT.
+- `ArduinoJson.h`: Mengubah (serialize) dan membaca (deserialize) pesan string format JSON pada ESP8266.
+- `paho-mqtt`: Pustaka pada Python untuk membuat klien yang bisa berlangganan (subscribe) topik dari broker MQTT.
+- `pandas`: Pustaka Python untuk memproses data tabular, list array, menjadi bentuk DataFrame, menghitung data statistik, serta operasi eksport ke format CSV.
+- `matplotlib`: Pustaka pada Python yang ditujukan untuk membuat grafik/visualisasi dari data angka DataFrame secara dua dimensi.
+- `json` dan `time`: Pustaka standar Python bawaan untuk membaca JSON dari MQTT dan merekam timestamp saat penerimaan data.
 
-void loop() {
-  if (!client.connected()) hubungkanMQTT();
-  client.loop(); 
+### 6. Modifikasi program agar menggunakan metode moving average (jendela 5 data) pada data hasil CSV sebelum dihitung z-score-nya, kemudian bandingkan jumlah anomali yang terdeteksi
 
-  if (millis() - waktuTerakhirPublish > intervalPublish) {
-    waktuTerakhirPublish = millis();
-    float suhu = dht.readTemperature();
-    if (!isnan(suhu)) {
-      JsonDocument doc;
-      doc["suhu"] = suhu;
-      char buffer[128];
-      serializeJson(doc, buffer);
-      client.publish(topicData, buffer); // Mengirim data ke topik KelompokDediPyka/data
-      Serial.print("Data terkirim: ");
-      Serial.println(buffer);
-    }
-  }
-}
+```py
+import json
+import time
+import paho.mqtt.client as mqtt
+import pandas as pd
+import matplotlib.pyplot as plt
+
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC = "KelompokDediPyka/data"  # Samakan dengan topicData pada ESP32
+JUMLAH_SAMPEL = 30  # Jumlah data yang dikumpulkan
+
+data = []
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    print("Terhubung ke broker, kode:", reason_code)
+    client.subscribe(TOPIC)
+
+def on_message(client, userdata, msg):
+    try:
+        payload = json.loads(msg.payload.decode())
+        suhu = float(payload["suhu"])
+    except (ValueError, KeyError):
+        print("Data tidak valid, diabaikan")
+        return
+
+    data.append({"waktu": time.strftime("%Y-%m-%d %H:%M:%S"), "suhu": suhu})
+    print(f"[{len(data)}/{JUMLAH_SAMPEL}] suhu = {suhu}")
+
+    if len(data) >= JUMLAH_SAMPEL:
+        client.disconnect()
+
+# Tahap 1: Akuisisi data dari MQTT
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client.on_connect = on_connect
+client.on_message = on_message
+client.connect(BROKER, PORT)
+client.loop_forever()
+
+# Tahap 2: Simpan ke CSV
+df = pd.DataFrame(data)
+df.to_csv("data_suhu.csv", index=False)
+print("Data tersimpan di data_suhu.csv")
+
+# Tahap 3: Analisis statistik dan deteksi anomali menggunakan data Moving Average
+# Menghitung Moving Average dengan window=5 pada kolom suhu mentah
+df["suhu_ma"] = df["suhu"].rolling(window=5, min_periods=1).mean() 
+
+# Menghitung nilai rata-rata dan standar deviasi dari data Moving Average
+rata2_ma = df["suhu_ma"].mean()
+std_ma = df["suhu_ma"].std()
+
+# Perhitungan z-score menggunakan data suhu_ma alih-alih data suhu mentah
+if std_ma == 0:
+    df["zscore"] = 0.0
+else:
+    df["zscore"] = (df["suhu_ma"] - rata2_ma) / std_ma
+
+# Menentukan batas anomali berdasarkan filter z-score (batas |z| > 2)
+df["anomali"] = df["zscore"].abs() > 2
+
+print("=== Hasil Deteksi dengan Pre-Filter Moving Average ===")
+print(f"Rata-rata (MA)  : {rata2_ma:.2f}")
+print(f"Std deviasi(MA) : {std_ma:.2f}")
+print(f"Jumlah anomali  : {df['anomali'].sum()}") 
+# Catatan Perbandingan: Jumlah anomali yang terdeteksi biasanya akan lebih SEDIKIT 
+# dibandingkan tanpa Moving Average. Hal ini terjadi karena MA "menghaluskan" 
+# lonjakan tajam dari noise/anomali lokal, sehingga nilai Z-Score dari puncak 
+# anomali tidak setinggi sebelumnya (tersebar).
+
+# Tahap 4: Visualisasi
+plt.figure(figsize=(10, 4))
+plt.plot(df.index, df["suhu"], marker="o", color="lightgray", label="Suhu Mentah", alpha=0.6) # Menampilkan data mentah sbg background
+plt.plot(df.index, df["suhu_ma"], marker="s", color="blue", label="Suhu (Moving Avg 5)") # Menampilkan data MA utama
+anom = df[df["anomali"]]
+plt.scatter(anom.index, anom["suhu_ma"], color="red", s=100, label="Anomali (di MA)", zorder=3) # Anomali pada garis MA
+plt.axhline(rata2_ma, color="gray", linestyle="--", label="Rata-rata MA")
+plt.xlabel("Urutan data")
+plt.ylabel("Suhu (°C)")
+plt.title("Data Suhu (Moving Average) dan Deteksi Anomali")
+plt.legend()
+plt.tight_layout()
+plt.savefig("grafik_suhu_ma.png")
+plt.show()
 ```
 
 ## Dokumentasi
 
-<img width="614" height="250" alt="gambar" src="https://github.com/user-attachments/assets/5b2ebfb0-00f5-4cf0-b633-47c74681abfb" /> <br>
-Rangkaian percobaan 4A <br><br>
+<img width="2810" height="1547" alt="rangkaian percobaan" src="https://github.com/user-attachments/assets/31c2dfeb-4a8f-4afa-9b90-a4afde8123a5" /> <br>
+Rangkaian percobaan 5A dan 5B <br><br>
 
-<img width="620" height="258" alt="gambar" src="https://github.com/user-attachments/assets/c3b3cfa9-0d3a-40ca-9006-f798c20616a2" /> <br>
-Rangkaian percobaan 4B <br><br>
+<img width="955" height="1016" alt="p5a" src="https://github.com/user-attachments/assets/70ce3849-aa6b-4501-8d67-a34984b3dd0e" /> <br>
+Serial Monitor Percobaan 5A <br><br>
 
-<img width="719" height="701" alt="gambar" src="https://github.com/user-attachments/assets/94684451-46a4-40aa-93b5-9a49362ef544" /> <br>
-Serial Monitor Percobaan 4A <br><br>
+<img width="895" height="547" alt="p5b sm" src="https://github.com/user-attachments/assets/6e8ae824-40b9-45cd-9d7e-9805215209ac" /> <br>
+Serial Monitor Percobaan 5B  <br><br>
 
-<img width="713" height="585" alt="gambar" src="https://github.com/user-attachments/assets/3adc211f-951e-4c7b-831e-89ab5ab70c09" /> <br>
-Serial Monitor Percobaan 4B  <br><br>
+<img width="1917" height="1020" alt="vscode" src="https://github.com/user-attachments/assets/d4de4048-ff79-4bc3-b38e-9a58ab56c56b" /> <br>
+terminal vscode <br><br>
 
-<img width="679" height="619" alt="gambar" src="https://github.com/user-attachments/assets/bcd65fa1-2c37-4c87-aee5-ee47fc8fe3de" /> <br>
-MQTT Explorer 4A <br><br>
-
-<img width="677" height="680" alt="gambar" src="https://github.com/user-attachments/assets/26f7d3b4-3f39-468d-8387-72023bc5c67b" /> <br>
-MQTT Explorer 4B <br><br>
+<img width="1000" height="400" alt="graph" src="https://github.com/user-attachments/assets/5927a555-a3e8-4fdf-851f-e80c4e614607" /> <br>
+grafik_suhu <br><br>
 
